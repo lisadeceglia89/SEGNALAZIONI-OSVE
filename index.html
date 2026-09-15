@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Tecsial Segnalazioni</title>
+
+<!-- iOS: "Aggiungi a Home" a schermo intero, senza barra Safari -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Segnalazioni">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+
+<!-- Android/Chrome: stesso comportamento "Aggiungi a schermata Home" -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1B4F72">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/icon-192.png">
+
+<style>
+  :root {
+    color-scheme: dark;
+    --blu: #1b4f72;
+    --blu-scuro: #123a54;
+    --ambra: #f39c12;
+    --sfondo: #0f1720;
+    --superficie: #17212c;
+    --testo: #e7ecf0;
+    --testo-attenuato: #9aa7b4;
+    --errore: #f5a3a3;
+    --errore-sfondo: #3a1f1f;
+    --ok-sfondo: #1f3a2a;
+    --ok-testo: #a8e0bd;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--sfondo);
+    color: var(--testo);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100%;
+  }
+  body {
+    padding: max(20px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0 20px;
+  }
+  header img { width: 40px; height: 40px; border-radius: 10px; }
+  header h1 { font-size: 19px; margin: 0; font-weight: 600; }
+  header p { margin: 2px 0 0; font-size: 13px; color: var(--testo-attenuato); }
+
+  label {
+    display: block;
+    font-size: 13px;
+    color: var(--testo-attenuato);
+    margin: 16px 0 6px;
+  }
+  input[type=text], select, textarea {
+    width: 100%;
+    padding: 13px 14px;
+    border-radius: 10px;
+    border: 1px solid #2a3a48;
+    background: var(--superficie);
+    color: var(--testo);
+    font-size: 16px; /* >=16px evita lo zoom automatico di iOS Safari sul focus */
+    font-family: inherit;
+  }
+  textarea { min-height: 110px; resize: vertical; }
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239aa7b4'%3E%3Cpath d='M5.5 7.5l4.5 5 4.5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+  .riga-due {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  button.invia {
+    width: 100%;
+    margin-top: 22px;
+    padding: 15px;
+    border: none;
+    border-radius: 12px;
+    background: var(--blu);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.invia:active { background: var(--blu-scuro); }
+  button.invia:disabled { opacity: .6; }
+
+  .banner {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    display: none;
+  }
+  .banner.ok { display: block; background: var(--ok-sfondo); color: var(--ok-testo); }
+  .banner.errore { display: block; background: var(--errore-sfondo); color: var(--errore); }
+
+  .installa {
+    margin-top: 24px;
+    padding: 14px;
+    border-radius: 12px;
+    background: var(--superficie);
+    font-size: 13px;
+    color: var(--testo-attenuato);
+    line-height: 1.5;
+  }
+  .installa b { color: var(--testo); }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="assets/icon-192.png" alt="">
+  <div>
+    <h1>Tecsial · Segnalazioni</h1>
+    <p>Invia una segnalazione direttamente al gestionale</p>
+  </div>
+</header>
+
+<form id="form-segnalazione">
+  <label for="consulente">Il tuo nome</label>
+  <input type="text" id="consulente" autocomplete="name" placeholder="Nome e cognome">
+
+  <label for="cliente">Cliente / sede</label>
+  <input type="text" id="cliente" placeholder="Nome cliente">
+
+  <div class="riga-due">
+    <div>
+      <label for="categoria">Categoria</label>
+      <select id="categoria">
+        <option>Reclamo</option>
+        <option selected>Richiesta informazioni</option>
+        <option>Problema tecnico</option>
+        <option>Nuovo contatto/lead</option>
+        <option>Altro</option>
+      </select>
+    </div>
+    <div>
+      <label for="urgenza">Urgenza</label>
+      <select id="urgenza">
+        <option>Bassa</option>
+        <option selected>Media</option>
+        <option>Alta</option>
+      </select>
+    </div>
+  </div>
+
+  <label for="testo">Segnalazione</label>
+  <textarea id="testo" placeholder="Descrizione della segnalazione"></textarea>
+
+  <button type="submit" class="invia" id="btn-invia">Invia segnalazione</button>
+  <div class="banner" id="banner"></div>
+</form>
+
+<div class="installa" id="suggerimento-installazione">
+  📲 <b>Consiglio</b>: apri questa pagina da Safari (iPhone) o Chrome (Android) e usa
+  "Condividi → Aggiungi a Home" per avere un'icona come una vera app, senza doverla
+  riaprire ogni volta dal browser.
+</div>
+
+<script>
+// Progetto Supabase "tecsial-segnalazioni" - stessa chiave "Publishable" dell'app Android:
+// puo' solo inserire righe (policy RLS "insert to anon"), mai leggerle - sicura da tenere
+// in una pagina pubblica.
+const SUPABASE_URL = "https://aszgumdydvbvbwptaqwm.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_b3GKJSUbQUlVA16AbdXO0g_Gnt4CM-O";
+
+const CHIAVE_CONSULENTE = "tecsial_segnalazioni_consulente";
+
+const campoConsulente = document.getElementById("consulente");
+const campoCliente = document.getElementById("cliente");
+const campoCategoria = document.getElementById("categoria");
+const campoUrgenza = document.getElementById("urgenza");
+const campoTesto = document.getElementById("testo");
+const bottone = document.getElementById("btn-invia");
+const banner = document.getElementById("banner");
+
+// Ricorda il nome del consulente tra un invio e l'altro (localStorage = equivalente
+// web del DataStore usato dall'app Android per lo stesso identico scopo).
+try {
+  const salvato = localStorage.getItem(CHIAVE_CONSULENTE);
+  if (salvato) campoConsulente.value = salvato;
+} catch (e) { /* Safari in modalita' privata blocca localStorage: si continua senza memoria */ }
+
+function mostraBanner(ok, testo) {
+  banner.className = "banner " + (ok ? "ok" : "errore");
+  banner.textContent = testo;
+}
+
+document.getElementById("form-segnalazione").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+
+  const consulente = campoConsulente.value.trim();
+  const cliente = campoCliente.value.trim();
+  const testo = campoTesto.value.trim();
+
+  if (!consulente || !cliente || !testo) {
+    mostraBanner(false, "Compila il tuo nome, il cliente e il testo della segnalazione.");
+    return;
+  }
+
+  bottone.disabled = true;
+  bottone.textContent = "Invio in corso...";
+  banner.className = "banner";
+
+  try {
+    const risposta = await fetch(`${SUPABASE_URL}/rest/v1/segnalazioni`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+      },
+      body: JSON.stringify({ consulente, cliente, categoria: campoCategoria.value, urgenza: campoUrgenza.value, testo }),
+    });
+
+    if (risposta.ok) {
+      try { localStorage.setItem(CHIAVE_CONSULENTE, consulente); } catch (e) {}
+      campoCliente.value = "";
+      campoTesto.value = "";
+      campoCategoria.selectedIndex = 1;
+      campoUrgenza.selectedIndex = 1;
+      mostraBanner(true, "Segnalazione inviata.");
+    } else {
+      mostraBanner(false, `Invio non riuscito (codice ${risposta.status}). Riprova.`);
+    }
+  } catch (e) {
+    mostraBanner(false, "Nessuna connessione. I dati inseriti restano qui: riprova quando hai segnale.");
+  } finally {
+    bottone.disabled = false;
+    bottone.textContent = "Invia segnalazione";
+  }
+});
+
+// Se la pagina e' gia' stata "aggiunta a Home" (si apre standalone, senza barra del
+// browser), il suggerimento per installarla non serve piu'.
+if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone) {
+  document.getElementById("suggerimento-installazione").style.display = "none";
+}
+</script>
+
+</body>
+</html>
