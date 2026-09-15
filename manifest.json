@@ -1,10 +1,10 @@
 {
-  "name": "Tecsial Segnalazioni",
-  "short_name": "Segnalazioni",
+  "name": "Segnalazioni OSVE",
+  "short_name": "Segnalazioni OSVE",
   "description": "Invia segnalazioni direttamente al gestionale Tecsial",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f1720",
+  "background_color": "#ffffff",
   "theme_color": "#1b4f72",
   "icons": [
     { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
