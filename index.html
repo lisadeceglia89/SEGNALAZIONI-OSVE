@@ -121,6 +121,40 @@
     line-height: 1.5;
   }
   .installa b { color: var(--testo); }
+
+  .coda {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #3a2f12;
+    color: #f3d58a;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .coda[hidden] { display: none; }
+  .coda button {
+    border: 1px solid #f3d58a;
+    background: transparent;
+    color: #f3d58a;
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .coda button:disabled { opacity: .5; }
+  .link-piccolo {
+    display: inline-block;
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--testo-attenuato);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  #blocco-codice[hidden], .link-piccolo[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -134,11 +168,16 @@
 </header>
 
 <form id="form-segnalazione">
+  <div id="blocco-codice" hidden>
+    <label for="codice">Codice di accesso</label>
+    <input type="text" id="codice" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="32" placeholder="Te lo comunica il tuo referente OSVE">
+  </div>
+
   <label for="consulente">Il tuo nome</label>
-  <input type="text" id="consulente" autocomplete="name" placeholder="Nome e cognome">
+  <input type="text" id="consulente" autocomplete="name" maxlength="80" placeholder="Nome e cognome">
 
   <label for="cliente">Cliente / sede</label>
-  <input type="text" id="cliente" placeholder="Nome cliente">
+  <input type="text" id="cliente" maxlength="160" placeholder="Nome cliente">
 
   <div class="riga-due">
     <div>
@@ -162,10 +201,15 @@
   </div>
 
   <label for="testo">Segnalazione</label>
-  <textarea id="testo" placeholder="Descrizione della segnalazione"></textarea>
+  <textarea id="testo" maxlength="4000" placeholder="Descrizione della segnalazione"></textarea>
 
   <button type="submit" class="invia" id="btn-invia">Invia segnalazione</button>
   <div class="banner" id="banner"></div>
+  <div class="coda" id="coda" hidden>
+    <span id="coda-testo"></span>
+    <button type="button" id="btn-coda">Invia ora</button>
+  </div>
+  <a class="link-piccolo" id="cambia-codice" hidden>Cambia codice di accesso</a>
 </form>
 
 <div class="installa" id="suggerimento-installazione">
@@ -175,14 +219,20 @@
 </div>
 
 <script>
-// Progetto Supabase "tecsial-segnalazioni" - stessa chiave "Publishable" dell'app Android:
-// puo' solo inserire righe (policy RLS "insert to anon"), mai leggerle - sicura da tenere
-// in una pagina pubblica.
+// Progetto Supabase "tecsial-segnalazioni". La chiave "Publishable" e' pubblica per natura: da sola
+// NON permette di scrivere ne' leggere nulla nelle tabelle, puo' solo chiamare la funzione
+// invia_segnalazione(), che rifiuta tutto se il codice di accesso non e' quello giusto.
 const SUPABASE_URL = "https://aszgumdydvbvbwptaqwm.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_b3GKJSUbQUlVA16AbdXO0g_Gnt4CM-O";
+const URL_INVIO = `${SUPABASE_URL}/rest/v1/rpc/invia_segnalazione`;
 
 const CHIAVE_CONSULENTE = "tecsial_segnalazioni_consulente";
+const CHIAVE_CODICE = "tecsial_segnalazioni_codice";
+const CHIAVE_CODA = "tecsial_segnalazioni_coda";
 
+const campoCodice = document.getElementById("codice");
+const bloccoCodice = document.getElementById("blocco-codice");
+const linkCambiaCodice = document.getElementById("cambia-codice");
 const campoConsulente = document.getElementById("consulente");
 const campoCliente = document.getElementById("cliente");
 const campoCategoria = document.getElementById("categoria");
@@ -190,69 +240,239 @@ const campoUrgenza = document.getElementById("urgenza");
 const campoTesto = document.getElementById("testo");
 const bottone = document.getElementById("btn-invia");
 const banner = document.getElementById("banner");
+const boxCoda = document.getElementById("coda");
+const testoCoda = document.getElementById("coda-testo");
+const bottoneCoda = document.getElementById("btn-coda");
 
-// Ricorda il nome del consulente tra un invio e l'altro (localStorage = equivalente
-// web del DataStore usato dall'app Android per lo stesso identico scopo).
-try {
-  const salvato = localStorage.getItem(CHIAVE_CONSULENTE);
-  if (salvato) campoConsulente.value = salvato;
-} catch (e) { /* Safari in modalita' privata blocca localStorage: si continua senza memoria */ }
+// localStorage puo' essere bloccato (Safari in navigazione privata): in quel caso si continua
+// senza memoria invece di rompere la pagina.
+function leggi(chiave) {
+  try { return localStorage.getItem(chiave); } catch (e) { return null; }
+}
+function scrivi(chiave, valore) {
+  try { localStorage.setItem(chiave, valore); } catch (e) {}
+}
+
+function leggiCoda() {
+  try { return JSON.parse(leggi(CHIAVE_CODA) || "[]"); } catch (e) { return []; }
+}
+function scriviCoda(coda) {
+  scrivi(CHIAVE_CODA, JSON.stringify(coda));
+  aggiornaIndicatoreCoda();
+}
+
+function aggiornaIndicatoreCoda() {
+  const n = leggiCoda().length;
+  boxCoda.hidden = n === 0;
+  testoCoda.textContent = n === 1 ? "1 segnalazione in attesa di invio" : `${n} segnalazioni in attesa di invio`;
+}
 
 function mostraBanner(ok, testo) {
   banner.className = "banner " + (ok ? "ok" : "errore");
   banner.textContent = testo;
 }
 
+function mostraCodice(obbligatorio) {
+  bloccoCodice.hidden = false;
+  linkCambiaCodice.hidden = true;
+  if (obbligatorio) campoCodice.focus();
+}
+function nascondiCodiceSeSalvato() {
+  const salvato = leggi(CHIAVE_CODICE);
+  bloccoCodice.hidden = !!salvato;
+  linkCambiaCodice.hidden = !salvato;
+}
+
+const nomeSalvato = leggi(CHIAVE_CONSULENTE);
+if (nomeSalvato) campoConsulente.value = nomeSalvato;
+campoCodice.value = leggi(CHIAVE_CODICE) || "";
+nascondiCodiceSeSalvato();
+aggiornaIndicatoreCoda();
+
+linkCambiaCodice.addEventListener("click", () => mostraCodice(true));
+
+function nuovoId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+}
+
+// Esiti possibili: "ok" (inviata), "codice" (codice di accesso rifiutato), "rifiutata" (dati non
+// validi: riprovare non serve), "temporaneo" (rete assente o server in difficolta': riprovare dopo).
+async function inviaAlServer(item) {
+  const controllo = new AbortController();
+  const scadenza = setTimeout(() => controllo.abort(), 15000);
+  let risposta;
+  try {
+    risposta = await fetch(URL_INVIO, {
+      method: "POST",
+      signal: controllo.signal,
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        p_codice: leggi(CHIAVE_CODICE) || "",
+        p_consulente: item.consulente,
+        p_cliente: item.cliente,
+        p_categoria: item.categoria,
+        p_urgenza: item.urgenza,
+        p_testo: item.testo,
+        p_creato_il: item.creato_il,
+        p_chiave_client: item.id,
+      }),
+    });
+  } catch (e) {
+    return "temporaneo";
+  } finally {
+    clearTimeout(scadenza);
+  }
+  if (risposta.ok) return "ok";
+  if (risposta.status === 401 || risposta.status === 403) return "codice";
+  if (risposta.status >= 500 || risposta.status === 429 || risposta.status === 404) return "temporaneo";
+  return "rifiutata";
+}
+
+let invioInCorso = false;
+
+// Prova a inviare tutto quello che e' in coda, nell'ordine in cui e' stato scritto. Si ferma al
+// primo problema temporaneo (inutile insistere senza rete) o di codice (serve l'utente).
+async function svuotaCoda() {
+  const esito = { inviate: [], scartate: [], codiceErrato: false, temporaneo: false };
+  if (invioInCorso) return esito;
+  invioInCorso = true;
+  bottoneCoda.disabled = true;
+  try {
+    for (const item of leggiCoda()) {
+      const r = await inviaAlServer(item);
+      if (r === "ok") {
+        esito.inviate.push(item.id);
+        scriviCoda(leggiCoda().filter((x) => x.id !== item.id));
+      } else if (r === "rifiutata") {
+        esito.scartate.push(item);
+        scriviCoda(leggiCoda().filter((x) => x.id !== item.id));
+      } else if (r === "codice") {
+        esito.codiceErrato = true;
+        break;
+      } else {
+        esito.temporaneo = true;
+        break;
+      }
+    }
+  } finally {
+    invioInCorso = false;
+    bottoneCoda.disabled = false;
+    aggiornaIndicatoreCoda();
+  }
+  return esito;
+}
+
 document.getElementById("form-segnalazione").addEventListener("submit", async (ev) => {
   ev.preventDefault();
 
+  const codice = campoCodice.value.trim();
   const consulente = campoConsulente.value.trim();
   const cliente = campoCliente.value.trim();
   const testo = campoTesto.value.trim();
 
+  if (!codice && !leggi(CHIAVE_CODICE)) {
+    mostraCodice(true);
+    mostraBanner(false, "Inserisci il codice di accesso che ti ha dato il tuo referente OSVE.");
+    return;
+  }
   if (!consulente || !cliente || !testo) {
     mostraBanner(false, "Compila il tuo nome, il cliente e il testo della segnalazione.");
     return;
   }
+
+  if (codice) scrivi(CHIAVE_CODICE, codice);
+  scrivi(CHIAVE_CONSULENTE, consulente);
+
+  // Prima si mette in coda (salvata sul telefono), poi si prova a spedirla: in questo modo,
+  // qualunque cosa succeda dopo (rete assente, app chiusa), la segnalazione non va persa.
+  const item = {
+    id: nuovoId(),
+    consulente, cliente, testo,
+    categoria: campoCategoria.value,
+    urgenza: campoUrgenza.value,
+    creato_il: new Date().toISOString(),
+  };
+  scriviCoda([...leggiCoda(), item]);
+
+  campoCliente.value = "";
+  campoTesto.value = "";
+  campoCategoria.selectedIndex = 1;
+  campoUrgenza.selectedIndex = 1;
 
   bottone.disabled = true;
   bottone.textContent = "Invio in corso...";
   banner.className = "banner";
 
   try {
-    const risposta = await fetch(`${SUPABASE_URL}/rest/v1/segnalazioni`, {
-      method: "POST",
-      headers: {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal",
-      },
-      body: JSON.stringify({ consulente, cliente, categoria: campoCategoria.value, urgenza: campoUrgenza.value, testo }),
-    });
-
-    if (risposta.ok) {
-      try { localStorage.setItem(CHIAVE_CONSULENTE, consulente); } catch (e) {}
-      campoCliente.value = "";
-      campoTesto.value = "";
-      campoCategoria.selectedIndex = 1;
-      campoUrgenza.selectedIndex = 1;
+    const esito = await svuotaCoda();
+    if (esito.codiceErrato) {
+      mostraCodice(true);
+      mostraBanner(false, "Codice di accesso non valido. Correggilo qui sopra e premi \"Invia ora\": la segnalazione è salvata sul telefono.");
+    } else if (esito.scartate.some((x) => x.id === item.id)) {
+      campoCliente.value = item.cliente;
+      campoTesto.value = item.testo;
+      mostraBanner(false, "Segnalazione rifiutata dal server: controlla i dati e riprova.");
+    } else if (esito.inviate.includes(item.id)) {
+      nascondiCodiceSeSalvato();
       mostraBanner(true, "Segnalazione inviata.");
     } else {
-      mostraBanner(false, `Invio non riuscito (codice ${risposta.status}). Riprova.`);
+      mostraBanner(false, "Nessuna connessione: la segnalazione è salvata sul telefono e verrà inviata appena possibile (riapri l'app quando torna il segnale).");
     }
-  } catch (e) {
-    mostraBanner(false, "Nessuna connessione. I dati inseriti restano qui: riprova quando hai segnale.");
   } finally {
     bottone.disabled = false;
     bottone.textContent = "Invia segnalazione";
   }
 });
 
+campoCodice.addEventListener("change", () => {
+  const valore = campoCodice.value.trim();
+  if (valore) scrivi(CHIAVE_CODICE, valore);
+});
+
+bottoneCoda.addEventListener("click", async () => {
+  const codice = campoCodice.value.trim();
+  if (codice) scrivi(CHIAVE_CODICE, codice);
+  const esito = await svuotaCoda();
+  if (esito.codiceErrato) {
+    mostraCodice(true);
+    mostraBanner(false, "Codice di accesso non valido: controllalo e riprova.");
+  } else if (esito.temporaneo) {
+    mostraBanner(false, "Ancora nessuna connessione: riproverò appena possibile.");
+  } else if (esito.inviate.length) {
+    nascondiCodiceSeSalvato();
+    mostraBanner(true, esito.inviate.length === 1 ? "Segnalazione inviata." : `${esito.inviate.length} segnalazioni inviate.`);
+  }
+});
+
+// Ritentativo automatico: all'apertura, quando torna la rete, quando la pagina torna in primo
+// piano e ogni 30 secondi finche' e' aperta (su iPhone l'app non puo' inviare da chiusa).
+async function ritentaInSilenzio() {
+  if (!leggiCoda().length || !leggi(CHIAVE_CODICE)) return;
+  const esito = await svuotaCoda();
+  if (esito.inviate.length) {
+    mostraBanner(true, esito.inviate.length === 1 ? "Segnalazione in attesa inviata." : `${esito.inviate.length} segnalazioni in attesa inviate.`);
+  }
+}
+window.addEventListener("online", ritentaInSilenzio);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) ritentaInSilenzio(); });
+setInterval(ritentaInSilenzio, 30000);
+ritentaInSilenzio();
+
 // Se la pagina e' gia' stata "aggiunta a Home" (si apre standalone, senza barra del
 // browser), il suggerimento per installarla non serve piu'.
 if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone) {
   document.getElementById("suggerimento-installazione").style.display = "none";
+}
+
+// Service worker: fa aprire la pagina anche senza rete (altrimenti la coda non servirebbe a
+// niente, perche' l'app non partirebbe nemmeno dove non c'e' segnale).
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 </script>
 
