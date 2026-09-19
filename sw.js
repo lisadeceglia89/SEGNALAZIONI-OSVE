@@ -1,7 +1,7 @@
 // Service worker minimale: rete prima (cosi' gli aggiornamenti della pagina arrivano subito),
 // copia in cache come ripiego quando non c'e' segnale. Intercetta solo le richieste dello stesso
 // sito: le chiamate a Supabase passano sempre direttamente in rete.
-const CACHE = "segnalazioni-osve-v1";
+const CACHE = "segnalazioni-osve-v2";
 const GUSCIO = [
   "./",
   "index.html",
@@ -28,7 +28,9 @@ self.addEventListener("activate", (evento) => {
 
 self.addEventListener("fetch", (evento) => {
   const richiesta = evento.request;
-  if (richiesta.method !== "GET" || new URL(richiesta.url).origin !== self.location.origin) return;
+  const indirizzo = new URL(richiesta.url);
+  // L'APK e' un download da qualche MB: va lasciato passare, non ha senso tenerlo in cache.
+  if (richiesta.method !== "GET" || indirizzo.origin !== self.location.origin || indirizzo.pathname.endsWith(".apk")) return;
 
   const conTimeout = Promise.race([
     fetch(richiesta),

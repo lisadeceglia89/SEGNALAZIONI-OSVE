@@ -216,6 +216,11 @@
   📲 <b>Consiglio</b>: apri questa pagina da Safari (iPhone) o Chrome (Android) e usa
   "Condividi → Aggiungi a Home" per avere un'icona come una vera app, senza doverla
   riaprire ogni volta dal browser.
+  <div id="riga-apk" hidden style="margin-top:10px">
+    🤖 <b>Android</b>: in alternativa puoi
+    <a href="segnalazioni-osve.apk" style="color:var(--testo)">scaricare l'app (APK)</a>
+    e installarla: Android ti chiederà di consentire l'installazione da questa fonte.
+  </div>
 </div>
 
 <script>
@@ -465,8 +470,11 @@ ritentaInSilenzio();
 
 // Se la pagina e' gia' stata "aggiunta a Home" (si apre standalone, senza barra del
 // browser), il suggerimento per installarla non serve piu'.
-if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone) {
+const dentroApk = /SegnalazioniOsveApk/.test(navigator.userAgent);
+if (dentroApk || window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone) {
   document.getElementById("suggerimento-installazione").style.display = "none";
+} else if (/Android/i.test(navigator.userAgent)) {
+  document.getElementById("riga-apk").hidden = false;
 }
 
 // Service worker: fa aprire la pagina anche senza rete (altrimenti la coda non servirebbe a
