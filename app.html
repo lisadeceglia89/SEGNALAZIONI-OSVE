@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Installa Segnalazioni OSVE</title>
+<meta name="theme-color" content="#1B4F72">
+<link rel="icon" href="assets/icon-192.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<style>
+  :root {
+    color-scheme: dark;
+    --blu: #1b4f72;
+    --blu-scuro: #123a54;
+    --sfondo: #0f1720;
+    --superficie: #17212c;
+    --testo: #e7ecf0;
+    --testo-attenuato: #9aa7b4;
+    --avviso-sfondo: #3a2f12;
+    --avviso-testo: #f3d58a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--sfondo);
+    color: var(--testo);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100%;
+  }
+  body {
+    padding: max(20px, env(safe-area-inset-top)) 20px max(32px, env(safe-area-inset-bottom));
+    max-width: 480px;
+    margin: 0 auto;
+    line-height: 1.45;
+  }
+  header { display: flex; align-items: center; gap: 12px; padding: 8px 0 22px; }
+  header img { width: 48px; height: 48px; border-radius: 12px; }
+  header h1 { font-size: 20px; margin: 0; font-weight: 600; }
+  header p { margin: 2px 0 0; font-size: 14px; color: var(--testo-attenuato); }
+
+  a.grande {
+    display: block;
+    text-align: center;
+    padding: 18px 16px;
+    border-radius: 14px;
+    background: var(--blu);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  a.grande:active { background: var(--blu-scuro); }
+  a.grande small { display: block; font-size: 13px; font-weight: 400; opacity: .8; margin-top: 2px; }
+
+  ol.passi { margin: 22px 0 0; padding: 0; list-style: none; counter-reset: passo; }
+  ol.passi li {
+    counter-increment: passo;
+    position: relative;
+    padding: 4px 0 14px 44px;
+    font-size: 16px;
+  }
+  ol.passi li::before {
+    content: counter(passo);
+    position: absolute;
+    left: 0; top: 0;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--superficie);
+    border: 1px solid #2a3a48;
+    text-align: center;
+    line-height: 28px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .nota, .avviso {
+    margin: 4px 0 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--superficie);
+    color: var(--testo-attenuato);
+    font-size: 14px;
+  }
+  .avviso { background: var(--avviso-sfondo); color: var(--avviso-testo); margin-bottom: 16px; }
+  details { margin-top: 14px; font-size: 14px; color: var(--testo-attenuato); }
+  details summary { cursor: pointer; color: var(--testo); }
+  details p { margin: 8px 0 0; }
+  .secondario { margin-top: 26px; text-align: center; font-size: 14px; color: var(--testo-attenuato); }
+  .secondario a { color: var(--testo); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="assets/icon-192.png" alt="">
+  <div>
+    <h1>Segnalazioni OSVE</h1>
+    <p id="sottotitolo">Installa l'app sul tuo telefono</p>
+  </div>
+</header>
+
+<section id="android" hidden>
+  <a class="grande" id="btn-apk" href="segnalazioni-osve.apk" download="segnalazioni-osve.apk">
+    Scarica l'app per Android
+    <small>File APK, circa 2 MB</small>
+  </a>
+  <ol class="passi">
+    <li>Tocca il pulsante e attendi la fine del download</li>
+    <li>Apri il file scaricato (lo trovi nelle notifiche o in «Download»)</li>
+    <li>Se Android lo chiede, consenti l'installazione da questa fonte</li>
+  </ol>
+  <p class="nota">Se compare un avviso di sicurezza è normale: l'app è interna e non si trova sul Play Store. Scegli «Installa comunque».</p>
+  <details>
+    <summary>Preferisci non installare nessun file?</summary>
+    <p>Nel menu ⋮ di Chrome scegli «Aggiungi a schermata Home» (o «Installa app»): è la stessa app, senza avvisi.</p>
+  </details>
+</section>
+
+<section id="ios" hidden>
+  <p class="avviso" id="avviso-safari" hidden>Su iPhone l'installazione funziona solo da Safari: copia questo indirizzo e aprilo con Safari.</p>
+  <ol class="passi">
+    <li>Tocca <b>Condividi</b>, il quadrato con la freccia verso l'alto</li>
+    <li>Scorri e scegli <b>«Aggiungi a Home»</b></li>
+    <li>Conferma con «Aggiungi»: l'icona OSVE comparirà nella Home</li>
+  </ol>
+  <p class="nota">Apri poi l'app dall'icona e inserisci il codice di accesso (solo la prima volta).</p>
+</section>
+
+<section id="pc" hidden>
+  <p class="nota">Questa pagina serve per installare l'app sul telefono: aprila dal telefono, inquadrando il codice QR oppure scrivendo questo indirizzo.</p>
+</section>
+
+<section id="gia" hidden>
+  <p class="nota">L'app è già installata: stai usando Segnalazioni OSVE.</p>
+</section>
+
+<p class="secondario" id="link-modulo"><a href="./">Apri il modulo senza installare</a></p>
+<p class="secondario">Il codice di accesso te lo comunica il tuo referente OSVE.</p>
+
+<script>
+// ?sistema=android | ios | pc forza la versione mostrata (utile per provare la pagina da un computer).
+const ua = navigator.userAgent;
+const forzato = new URLSearchParams(location.search).get("sistema");
+const dentroApk = /SegnalazioniOsveApk/.test(ua);
+const android = forzato ? forzato === "android" : /Android/i.test(ua);
+const ios = forzato ? forzato === "ios" : (/iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+const inSafari = !/CriOS|FxiOS|EdgiOS|OPiOS|FBAN|FBAV|Instagram/i.test(ua);
+const giaInstallata = dentroApk || (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone);
+
+function mostra(id) { document.getElementById(id).hidden = false; }
+
+if (giaInstallata && !forzato) {
+  mostra("gia");
+  document.getElementById("sottotitolo").textContent = "App già installata";
+} else if (android) {
+  mostra("android");
+} else if (ios) {
+  mostra("ios");
+  document.getElementById("avviso-safari").hidden = forzato ? true : inSafari;
+} else {
+  mostra("pc");
+}
+</script>
+</body>
+</html>
