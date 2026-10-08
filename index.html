@@ -85,6 +85,22 @@
     grid-template-columns: 1fr 1fr;
     gap: 12px;
   }
+  .riga-comune {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: 12px;
+  }
+  .sezione {
+    margin-top: 26px;
+    padding-top: 14px;
+    border-top: 1px solid #2a3a48;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--testo-attenuato);
+  }
+  .sezione span { text-transform: none; letter-spacing: 0; font-weight: 400; }
 
   button.invia {
     width: 100%;
@@ -179,6 +195,30 @@
   <label for="cliente">Cliente / sede</label>
   <input type="text" id="cliente" maxlength="160" placeholder="Nome cliente">
 
+  <div class="sezione">Contatto del cliente <span>(facoltativo)</span></div>
+
+  <label for="telefono">Telefono</label>
+  <input type="text" id="telefono" inputmode="tel" autocomplete="off" maxlength="40" placeholder="es. 333 1234567">
+
+  <label for="email">Email</label>
+  <input type="text" id="email" inputmode="email" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="160" placeholder="es. nome@azienda.it">
+
+  <div class="riga-comune">
+    <div>
+      <label for="comune">Comune</label>
+      <input type="text" id="comune" autocomplete="off" maxlength="120" placeholder="es. Molfetta">
+    </div>
+    <div>
+      <label for="kw">Potenza (kW)</label>
+      <input type="text" id="kw" inputmode="decimal" autocomplete="off" maxlength="9" placeholder="es. 6">
+    </div>
+  </div>
+
+  <label for="indirizzo">Indirizzo</label>
+  <input type="text" id="indirizzo" autocomplete="off" maxlength="200" placeholder="Via e numero civico">
+
+  <div class="sezione">La segnalazione</div>
+
   <div class="riga-due">
     <div>
       <label for="categoria">Categoria</label>
@@ -243,6 +283,11 @@ const campoCliente = document.getElementById("cliente");
 const campoCategoria = document.getElementById("categoria");
 const campoUrgenza = document.getElementById("urgenza");
 const campoTesto = document.getElementById("testo");
+const campoTelefono = document.getElementById("telefono");
+const campoEmail = document.getElementById("email");
+const campoComune = document.getElementById("comune");
+const campoIndirizzo = document.getElementById("indirizzo");
+const campoKw = document.getElementById("kw");
 const bottone = document.getElementById("btn-invia");
 const banner = document.getElementById("banner");
 const boxCoda = document.getElementById("coda");
@@ -301,6 +346,43 @@ function nuovoId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
 }
 
+function datiClienteDaInviare(item) {
+  const extra = {};
+  if (item.telefono) extra.p_telefono = item.telefono;
+  if (item.email) extra.p_email = item.email;
+  if (item.comune) extra.p_comune = item.comune;
+  if (item.indirizzo) extra.p_indirizzo = item.indirizzo;
+  if (item.kw !== null && item.kw !== undefined) extra.p_kw = item.kw;
+  return extra;
+}
+
+// Controlla i dati facoltativi del cliente. Ritorna { errore } oppure { dati } gia' puliti.
+function leggiDatiCliente() {
+  const telefono = campoTelefono.value.trim();
+  const email = campoEmail.value.trim();
+  const comune = campoComune.value.trim();
+  const indirizzo = campoIndirizzo.value.trim();
+  const kwTesto = campoKw.value.trim().replace(/\s*kw\s*$/i, "");
+
+  if (telefono && (telefono.match(/\d/g) || []).length < 6) {
+    return { errore: "Il telefono sembra incompleto: controlla il numero." };
+  }
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return { errore: "L'indirizzo email non sembra valido: controllalo." };
+  }
+  let kw = null;
+  if (kwTesto) {
+    if (!/^\d+([.,]\d{1,3})?$/.test(kwTesto)) {
+      return { errore: "La potenza (kW) deve essere un numero, per esempio 6 oppure 4,5." };
+    }
+    kw = parseFloat(kwTesto.replace(",", "."));
+    if (!(kw >= 0 && kw <= 100000)) {
+      return { errore: "La potenza (kW) non è valida." };
+    }
+  }
+  return { dati: { telefono, email, comune, indirizzo, kw } };
+}
+
 // Esiti possibili: "ok" (inviata), "codice" (codice di accesso rifiutato), "rifiutata" (dati non
 // validi: riprovare non serve), "temporaneo" (rete assente o server in difficolta': riprovare dopo).
 async function inviaAlServer(item) {
@@ -325,6 +407,9 @@ async function inviaAlServer(item) {
         p_testo: item.testo,
         p_creato_il: item.creato_il,
         p_chiave_client: item.id,
+        // Solo i dati del cliente effettivamente compilati: una segnalazione senza contatti
+        // parte identica a prima, anche verso un database non ancora aggiornato.
+        ...datiClienteDaInviare(item),
       }),
     });
   } catch (e) {
@@ -389,6 +474,11 @@ document.getElementById("form-segnalazione").addEventListener("submit", async (e
     mostraBanner(false, "Compila il tuo nome, il cliente e il testo della segnalazione.");
     return;
   }
+  const lettura = leggiDatiCliente();
+  if (lettura.errore) {
+    mostraBanner(false, lettura.errore);
+    return;
+  }
 
   if (codice) scrivi(CHIAVE_CODICE, codice);
   scrivi(CHIAVE_CONSULENTE, consulente);
@@ -398,6 +488,7 @@ document.getElementById("form-segnalazione").addEventListener("submit", async (e
   const item = {
     id: nuovoId(),
     consulente, cliente, testo,
+    ...lettura.dati,
     categoria: campoCategoria.value,
     urgenza: campoUrgenza.value,
     creato_il: new Date().toISOString(),
@@ -406,6 +497,11 @@ document.getElementById("form-segnalazione").addEventListener("submit", async (e
 
   campoCliente.value = "";
   campoTesto.value = "";
+  campoTelefono.value = "";
+  campoEmail.value = "";
+  campoComune.value = "";
+  campoIndirizzo.value = "";
+  campoKw.value = "";
   campoCategoria.selectedIndex = 1;
   campoUrgenza.selectedIndex = 1;
 
@@ -421,6 +517,11 @@ document.getElementById("form-segnalazione").addEventListener("submit", async (e
     } else if (esito.scartate.some((x) => x.id === item.id)) {
       campoCliente.value = item.cliente;
       campoTesto.value = item.testo;
+      campoTelefono.value = item.telefono || "";
+      campoEmail.value = item.email || "";
+      campoComune.value = item.comune || "";
+      campoIndirizzo.value = item.indirizzo || "";
+      campoKw.value = item.kw === null || item.kw === undefined ? "" : String(item.kw).replace(".", ",");
       mostraBanner(false, "Segnalazione rifiutata dal server: controlla i dati e riprova.");
     } else if (esito.inviate.includes(item.id)) {
       nascondiCodiceSeSalvato();
