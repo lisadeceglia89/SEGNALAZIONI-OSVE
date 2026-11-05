@@ -54,6 +54,17 @@
   header img { width: 40px; height: 40px; border-radius: 10px; }
   header h1 { font-size: 19px; margin: 0; font-weight: 600; }
   header p { margin: 2px 0 0; font-size: 13px; color: var(--testo-attenuato); }
+  .azienda {
+    margin: -6px 0 6px;
+    padding: 9px 13px;
+    border-radius: 10px;
+    background: var(--superficie);
+    border-left: 3px solid var(--ambra);
+    font-size: 14px;
+    color: var(--testo-attenuato);
+  }
+  .azienda b { color: var(--testo); font-weight: 600; }
+  .azienda[hidden] { display: none; }
 
   label {
     display: block;
@@ -183,10 +194,12 @@
   </div>
 </header>
 
+<div class="azienda" id="riga-azienda" hidden>🏢 Le segnalazioni vanno a: <b id="nome-azienda"></b></div>
+
 <form id="form-segnalazione">
   <div id="blocco-codice" hidden>
     <label for="codice">Codice di accesso</label>
-    <input type="text" id="codice" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="32" placeholder="Te lo comunica il tuo referente OSVE">
+    <input type="text" id="codice" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="32" placeholder="Il codice della tua azienda: te lo dà il tuo referente OSVE">
   </div>
 
   <label for="consulente">Il tuo nome</label>
@@ -270,10 +283,12 @@
 const SUPABASE_URL = "https://aszgumdydvbvbwptaqwm.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_b3GKJSUbQUlVA16AbdXO0g_Gnt4CM-O";
 const URL_INVIO = `${SUPABASE_URL}/rest/v1/rpc/invia_segnalazione`;
+const URL_AZIENDA = `${SUPABASE_URL}/rest/v1/rpc/azienda_da_codice`;
 
 const CHIAVE_CONSULENTE = "tecsial_segnalazioni_consulente";
 const CHIAVE_CODICE = "tecsial_segnalazioni_codice";
 const CHIAVE_CODA = "tecsial_segnalazioni_coda";
+const CHIAVE_AZIENDA = "tecsial_segnalazioni_azienda";
 
 const campoCodice = document.getElementById("codice");
 const bloccoCodice = document.getElementById("blocco-codice");
@@ -293,6 +308,8 @@ const banner = document.getElementById("banner");
 const boxCoda = document.getElementById("coda");
 const testoCoda = document.getElementById("coda-testo");
 const bottoneCoda = document.getElementById("btn-coda");
+const rigaAzienda = document.getElementById("riga-azienda");
+const testoAzienda = document.getElementById("nome-azienda");
 
 // localStorage puo' essere bloccato (Safari in navigazione privata): in quel caso si continua
 // senza memoria invece di rompere la pagina.
@@ -333,11 +350,73 @@ function nascondiCodiceSeSalvato() {
   linkCambiaCodice.hidden = !salvato;
 }
 
+// L'azienda a cui vanno le segnalazioni la decide il codice, non il consulente: qui la si mostra,
+// cosi' si vede subito se il codice e' quello giusto.
+function mostraAzienda(nome) {
+  rigaAzienda.hidden = !nome;
+  if (nome) testoAzienda.textContent = nome;
+}
+
+// Nome dell'azienda del codice salvato, se gia' noto (si vede anche senza rete).
+function aziendaNota() {
+  try {
+    const x = JSON.parse(leggi(CHIAVE_AZIENDA) || "null");
+    return x && x.codice === leggi(CHIAVE_CODICE) ? x.nome : null;
+  } catch (e) { return null; }
+}
+
+// Chiede al server per quale azienda vale il codice salvato. Esiti: "ok" (con il nome), "codice"
+// (non valido), "assente" (il database non e' ancora aggiornato: non e' un problema del consulente),
+// "temporaneo" (nessuna rete o server in difficolta'), "nessuno" (nessun codice salvato).
+async function verificaAzienda() {
+  const codice = leggi(CHIAVE_CODICE);
+  if (!codice) { mostraAzienda(null); return { esito: "nessuno" }; }
+  const controllo = new AbortController();
+  const scadenza = setTimeout(() => controllo.abort(), 10000);
+  try {
+    const risposta = await fetch(URL_AZIENDA, {
+      method: "POST",
+      signal: controllo.signal,
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ p_codice: codice }),
+    });
+    const ancoraQuello = codice === leggi(CHIAVE_CODICE);
+    if (risposta.ok) {
+      const nome = await risposta.json();
+      if (typeof nome !== "string" || !nome) return { esito: "assente" };
+      scrivi(CHIAVE_AZIENDA, JSON.stringify({ codice, nome }));
+      if (ancoraQuello) mostraAzienda(nome);
+      return { esito: "ok", nome };
+    }
+    if (risposta.status === 401 || risposta.status === 403) {
+      if (ancoraQuello) mostraAzienda(null);
+      return { esito: "codice" };
+    }
+    return { esito: risposta.status === 404 ? "assente" : "temporaneo" };
+  } catch (e) {
+    return { esito: "temporaneo" };
+  } finally {
+    clearTimeout(scadenza);
+  }
+}
+
 const nomeSalvato = leggi(CHIAVE_CONSULENTE);
 if (nomeSalvato) campoConsulente.value = nomeSalvato;
 campoCodice.value = leggi(CHIAVE_CODICE) || "";
 nascondiCodiceSeSalvato();
 aggiornaIndicatoreCoda();
+mostraAzienda(aziendaNota());
+// All'apertura si controlla che il codice salvato valga ancora (l'azienda puo' averlo cambiato).
+verificaAzienda().then((r) => {
+  if (r.esito === "codice") {
+    mostraCodice(false);
+    mostraBanner(false, "Il codice di accesso salvato non è più valido: inserisci quello nuovo che ti ha dato il tuo referente.");
+  }
+});
 
 linkCambiaCodice.addEventListener("click", () => mostraCodice(true));
 
@@ -526,6 +605,7 @@ document.getElementById("form-segnalazione").addEventListener("submit", async (e
     } else if (esito.inviate.includes(item.id)) {
       nascondiCodiceSeSalvato();
       mostraBanner(true, "Segnalazione inviata.");
+      verificaAzienda();
     } else {
       mostraBanner(false, "Nessuna connessione: la segnalazione è salvata sul telefono e verrà inviata appena possibile (riapri l'app quando torna il segnale).");
     }
@@ -535,9 +615,13 @@ document.getElementById("form-segnalazione").addEventListener("submit", async (e
   }
 });
 
-campoCodice.addEventListener("change", () => {
+campoCodice.addEventListener("change", async () => {
   const valore = campoCodice.value.trim();
-  if (valore) scrivi(CHIAVE_CODICE, valore);
+  if (!valore) return;
+  scrivi(CHIAVE_CODICE, valore);
+  const r = await verificaAzienda();
+  if (r.esito === "ok") mostraBanner(true, `Codice riconosciuto: segnalazioni per ${r.nome}.`);
+  else if (r.esito === "codice") mostraBanner(false, "Codice di accesso non valido: controllalo e riprova.");
 });
 
 bottoneCoda.addEventListener("click", async () => {
